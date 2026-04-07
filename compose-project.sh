@@ -20,23 +20,23 @@ Repository:
 This script uses the directory where it is run as the compose project root.
 
 Interactive mode:
-  ./compose-project.sh
+  compose-project
 
 Single command mode:
-  ./compose-project.sh list
-  ./compose-project.sh install
-  ./compose-project.sh up 1 --build
-  ./compose-project.sh down 2
-  ./compose-project.sh restart 1
-  ./compose-project.sh logs 1 webserver
-  ./compose-project.sh exec 1 app -- php artisan migrate
-  ./compose-project.sh env up client-a --build
-  ./compose-project.sh env logs melati_client_a webserver
-  ./compose-project.sh env exec client-a app -- php artisan migrate
+  compose-project list
+  compose-project install
+  compose-project up 1 --build
+  compose-project down 2
+  compose-project restart 1
+  compose-project logs 1 webserver
+  compose-project exec 1 app -- php artisan migrate
+  compose-project env up client-a --build
+  compose-project env logs melati_client_a webserver
+  compose-project env exec client-a app -- php artisan migrate
 
 Commands:
   install
-      Copy this script into the current directory as ./compose-project.sh.
+      Install this script into a shared executable path as compose-project.
 
   list
       Scan env files in the current directory and list all projects with their deployed status.
@@ -98,17 +98,120 @@ ensure_compose_file() {
 }
 
 install_script() {
-  local target_dir="$COMPOSE_ROOT"
-  local target_file="$target_dir/compose-project.sh"
+  local source_file="$SCRIPT_DIR/compose-project.sh"
+  local install_name="compose-project"
+  local target_dir=""
+  local target_file=""
+  local -a candidates=()
+  local -a labels=()
 
-  if [[ "$SCRIPT_DIR" == "$target_dir" && "$(basename "$0")" == "compose-project.sh" ]]; then
-    echo "compose-project.sh is already installed in $target_dir"
+  if [[ -n "${COMPOSE_PROJECT_INSTALL_DIR:-}" ]]; then
+    candidates+=("$COMPOSE_PROJECT_INSTALL_DIR")
+    labels+=("COMPOSE_PROJECT_INSTALL_DIR")
+  fi
+
+  if [[ -n "${HOME:-}" ]]; then
+    candidates+=("$HOME/.local/bin")
+    labels+=("HOME local bin")
+  fi
+
+  candidates+=("/usr/local/bin")
+  labels+=("system local bin")
+
+  local i
+  echo "Select install location for compose-project:"
+  for ((i = 0; i < ${#candidates[@]}; i++)); do
+    local candidate="${candidates[$i]}"
+    local label="${labels[$i]}"
+    local state=""
+
+    if [[ -d "$candidate" ]]; then
+      if [[ -w "$candidate" ]]; then
+        state="exists, writable"
+      else
+        state="exists, not writable"
+      fi
+    else
+      local parent_dir
+      parent_dir="$(dirname "$candidate")"
+      if [[ -d "$parent_dir" && -w "$parent_dir" ]]; then
+        state="will be created"
+      else
+        state="cannot create"
+      fi
+    fi
+
+    printf '  %d) %s - %s [%s]\n' "$((i + 1))" "$candidate" "$label" "$state"
+  done
+
+  local default_index=""
+  for ((i = 0; i < ${#candidates[@]}; i++)); do
+    local candidate="${candidates[$i]}"
+    if [[ -d "$candidate" && -w "$candidate" ]]; then
+      default_index="$((i + 1))"
+      break
+    fi
+
+    local parent_dir
+    parent_dir="$(dirname "$candidate")"
+    if [[ ! -e "$candidate" && -d "$parent_dir" && -w "$parent_dir" ]]; then
+      default_index="$((i + 1))"
+      break
+    fi
+  done
+
+  if [[ -z "$default_index" ]]; then
+    echo "Error: no writable install directory found." >&2
+    echo "Set COMPOSE_PROJECT_INSTALL_DIR to a writable directory in your PATH, or run install with elevated permissions." >&2
+    exit 1
+  fi
+
+  local selection=""
+  while true; do
+    read -r -p "Choose location [$default_index]: " selection
+    selection="${selection:-$default_index}"
+
+    if [[ "$selection" =~ ^[0-9]+$ ]] && (( selection >= 1 && selection <= ${#candidates[@]} )); then
+      target_dir="${candidates[$((selection - 1))]}"
+      break
+    fi
+
+    echo "Invalid selection. Choose a number from the list." >&2
+  done
+
+  if [[ -d "$target_dir" ]]; then
+    if [[ ! -w "$target_dir" ]]; then
+      echo "Error: install directory is not writable: $target_dir" >&2
+      exit 1
+    fi
+  else
+    local parent_dir
+    parent_dir="$(dirname "$target_dir")"
+    if [[ ! -d "$parent_dir" || ! -w "$parent_dir" ]]; then
+      echo "Error: cannot create install directory: $target_dir" >&2
+      exit 1
+    fi
+    mkdir -p "$target_dir"
+  fi
+
+  target_file="$target_dir/$install_name"
+
+  if [[ "$source_file" == "$target_file" ]]; then
+    chmod +x "$target_file" 2>/dev/null || true
+    echo "compose-project is already installed at $target_file"
     return
   fi
 
-  cp "$SCRIPT_DIR/compose-project.sh" "$target_file"
+  cp "$source_file" "$target_file"
   chmod +x "$target_file" 2>/dev/null || true
-  echo "Installed compose-project.sh to $target_file"
+
+  echo "Installed compose-project to $target_file"
+  case ":${PATH:-}:" in
+    *":$target_dir:"*) ;;
+    *)
+      echo "Warning: $target_dir is not currently in PATH." >&2
+      ;;
+  esac
 }
 
 discover_env_files() {

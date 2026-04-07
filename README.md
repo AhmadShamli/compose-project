@@ -27,29 +27,27 @@ To run multiple client or site instances on the same server, the main rule is:
 - do not hardcode the app's internal network name
 - use a unique `COMPOSE_PROJECT_NAME` per client/site
 
-## Why the previous setup caused issues
-
-`container_name: ${CONTAINER_PREFIX}_app` and similar values create global Docker object names.
-If two sites reuse the same prefix, or if one variable is forgotten, Docker sees a name collision.
-
-Compose already solves this problem for us:
-
-- containers become `<project>_<service>_1`
-- volumes become `<project>_<volume>`
-- networks become `<project>_<network>`
-
-That means `client-a` and `client-b` can share one server safely.
-
 ## Recommended structure
 
-Keep one deployed stack directory, each with its own env files:
+Use one directory with one shared `docker-compose.yml`, and keep multiple env files in that same directory for each site or client:
 
 ```text
-/srv/docker-projects/site-a
-/srv/docker-projects/site-b
+/srv/docker-projects/
+  docker-compose.yml
+  .env.site-a
+  .env.site-b
 ```
 
-Inside each directory, each deployment target gets a different `COMPOSE_PROJECT_NAME`:
+For example, one folder can host multiple deployments from the same compose file:
+
+```text
+/srv/docker-projects/
+  docker-compose.yml
+  .env.site-a
+  .env.site-b
+```
+
+Each env file should set a different `COMPOSE_PROJECT_NAME` for its deployment:
 
 ```env
 COMPOSE_PROJECT_NAME=site_a
@@ -69,14 +67,17 @@ SHARED_PROXY_NETWORK=mynetwork
 
 Clone or copy `compose-project.sh` into any machine that has Docker Compose available.
 
-To install the script into the current working directory:
+To install the helper into a common executable path:
 
 ```bash
 bash /path/to/compose-project.sh install
-chmod +x ./compose-project.sh
 ```
 
-This creates a local `./compose-project.sh` in the directory where the command is run.
+The `install` command installs the script into a shared executable location so it can be called as `compose-project`.
+After installation, future use only needs to call `compose-project` from any compose project directory.
+The installer shows the available install locations and asks which one to use.
+The choices are `$COMPOSE_PROJECT_INSTALL_DIR` when set, then `$HOME/.local/bin`, then `/usr/local/bin`.
+If the chosen install path is not in `PATH`, the script prints a warning after installation.
 
 ## Direct Docker Compose commands
 
@@ -98,7 +99,7 @@ docker compose --project-name site_b --env-file .env.site-b up -d --build
 Interactive mode:
 
 ```bash
-./compose-project.sh
+compose-project
 ```
 
 When interactive mode starts, it prints the script info once, then shows the detected projects.
@@ -106,22 +107,22 @@ When interactive mode starts, it prints the script info once, then shows the det
 Single command mode:
 
 ```bash
-./compose-project.sh list
-./compose-project.sh up 1 --build
-./compose-project.sh down 2
-./compose-project.sh restart 1
-./compose-project.sh logs 1 webserver
-./compose-project.sh exec 1 app -- php artisan migrate
-./compose-project.sh env up site-a --build
-./compose-project.sh env logs site_a webserver
-./compose-project.sh env exec site-a app -- php artisan migrate
+compose-project list
+compose-project up 1 --build
+compose-project down 2
+compose-project restart 1
+compose-project logs 1 webserver
+compose-project exec 1 app -- php artisan migrate
+compose-project env up site-a --build
+compose-project env logs site_a webserver
+compose-project env exec site-a app -- php artisan migrate
 ```
 
 Examples:
 
 ```bash
-./compose-project.sh list
-./compose-project.sh
+compose-project list
+compose-project
 
 # after list inside the interactive prompt
 up 1 --build
@@ -138,14 +139,15 @@ env logs site-a webserver
 env exec site-a app -- php artisan migrate
 ```
 
-A project can install the helper locally with `bash /path/to/compose-project.sh install`.
-After that, the script uses the directory where it is run as the compose root, reads `.env` and `.env.*` there, and targets `./docker-compose.yml` by default.
+A project can install the helper with `bash /path/to/compose-project.sh install`.
+After that, future use only needs to call `compose-project`.
+The script uses the directory where it is run as the compose root, reads `.env` and `.env.*` there, and targets `./docker-compose.yml` by default.
 `list` scans only the current directory, shows numbered projects plus deployed status, and those numbers can be used immediately for `up`, `down`, `restart`, `logs`, `exec`, and similar commands.
 If you already know the project, use `env <action> <project>` with either the compose project name, env nickname, or env file name.
 
 ## Commands
 
-- `install` - copy the script into the current directory as `./compose-project.sh`
+- `install` - ask where to install `compose-project`, then install into the selected shared executable path
 - `list` - scan env files and show project numbers, names, and status
 - `up <number> [flags]`
 - `down <number> [flags]`
@@ -195,4 +197,3 @@ This lets the proxy reach each site's web container without merging all app cont
 This project is intended to use the MIT license.
 
 That allows broad reuse, modification, distribution, sublicensing, and commercial use, while requiring the original copyright and license notice to remain included in copies and substantial portions of the software.
-
