@@ -15,7 +15,7 @@ usage() {
 Compose Project Manager
 
 Repository:
-  github.com/AhmadShamli/docker-project
+  github.com/AhmadShamli/compose-project
 
 This script uses the directory where it is run as the compose project root.
 
@@ -76,7 +76,7 @@ EOF
 show_info() {
   cat <<'EOF'
 Compose Project Manager
-Repository: github.com/AhmadShamli/docker-project
+Repository: github.com/AhmadShamli/compose-project
 License: MIT with attribution preservation; keep the original license notice in copies and substantial portions.
 
 This script uses the current working directory as the compose project root.

@@ -2,7 +2,7 @@
 
 Standalone helper script for managing multiple Docker Compose projects from one directory.
 
-- Repository: `github.com/AhmadShamli/docker-project`
+- Repository: `github.com/AhmadShamli/compose-project`
 - License: MIT, with the original license notice kept in copies and substantial portions
 
 ## What it does
@@ -32,7 +32,7 @@ To run multiple client or site instances on the same server, the main rule is:
 Use one directory with one shared `docker-compose.yml`, and keep multiple env files in that same directory for each site or client:
 
 ```text
-/srv/docker-projects/
+/srv/compose-projects/
   docker-compose.yml
   .env.site-a
   .env.site-b
@@ -41,7 +41,7 @@ Use one directory with one shared `docker-compose.yml`, and keep multiple env fi
 For example, one folder can host multiple deployments from the same compose file:
 
 ```text
-/srv/docker-projects/
+/srv/compose-projects/
   docker-compose.yml
   .env.site-a
   .env.site-b
